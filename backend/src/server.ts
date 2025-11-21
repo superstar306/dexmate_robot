@@ -13,18 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 
 // CORS - Allow all origins
-app.use(cors({
-  origin: (origin, callback) => {
-    return callback(null, true);
-  },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  preflightContinue: false,
-  optionsSuccessStatus: 200,
-}));
-
-app.options('*', cors());
+app.use(cors())
 
 // Log all incoming requests for debugging
 app.use((req, res, next) => {
