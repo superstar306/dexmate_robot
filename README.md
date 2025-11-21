@@ -69,8 +69,6 @@ JWT_SECRET=your-secret-key-here-change-in-production
 JWT_ACCESS_EXPIRES_IN=30m
 JWT_REFRESH_EXPIRES_IN=7d
 
-CORS_ORIGIN=http://localhost:5173
-
 ALLOWED_HOSTS=localhost,127.0.0.1
 ```
 
@@ -254,7 +252,8 @@ npm run lint
    - Click on your web service
    - Go to "Settings" tab
    - Set "Root Directory" to `backend`
-   - Railway will use `nixpacks.toml` and `railway.json` for build configuration
+   - Railway will automatically detect the `Dockerfile` and use Docker builder
+   - Alternatively, Railway can use Nixpacks if you prefer (see backend README)
 
 4. **Set Environment Variables**
    - In your web service, go to "Variables" tab
@@ -263,7 +262,6 @@ npm run lint
    ```env
    NODE_ENV=production
    JWT_SECRET=your-generated-secret-key-here
-   CORS_ORIGIN=https://your-vercel-app.vercel.app
    ALLOWED_HOSTS=*.railway.app,your-custom-domain.com
    ```
 
@@ -292,10 +290,26 @@ npm run lint
 #### Railway Files Reference
 
 The following files are configured for Railway:
+- `backend/Dockerfile` - Docker build configuration (used by Railway)
+- `backend/.dockerignore` - Files excluded from Docker build
 - `backend/Procfile` - Defines web server and migration commands
-- `backend/railway.json` - Railway configuration
-- `backend/nixpacks.toml` - Build configuration (Node.js 20, build steps)
+- `backend/railway.json` - Railway configuration (Docker builder)
+- `backend/nixpacks.toml` - Alternative build configuration (if using Nixpacks)
 - `backend/src/db/migrate.ts` - Database migration script
+
+#### Docker Build Process
+
+Railway uses Docker to build and deploy the backend:
+1. **Build Stage**: Installs dependencies, compiles TypeScript
+2. **Release Stage**: Runs database migrations (via Procfile)
+3. **Start Stage**: Starts the Node.js server
+
+The Dockerfile:
+- Uses Node.js 20 LTS
+- Installs all dependencies (including devDependencies for build)
+- Compiles TypeScript to JavaScript
+- Keeps `tsx` and `typescript` for database migrations
+- Removes other devDependencies to reduce image size
 
 ### Frontend Deployment on Vercel
 
@@ -338,27 +352,16 @@ The following files are configured for Railway:
    - The first deployment may take a few minutes
    - You'll get a URL like `https://your-app.vercel.app`
 
-5. **Update Backend CORS Settings**
-   - Go back to your Railway backend dashboard
-   - Update environment variables:
-
-   ```env
-   CORS_ORIGIN=https://your-app.vercel.app
-   ```
-
-   - Redeploy your Railway backend for changes to take effect
-
-6. **Verify Deployment**
+5. **Verify Deployment**
    - Visit your Vercel URL: `https://your-app.vercel.app`
    - Try logging in or registering
    - Check browser console for any errors
    - Check Vercel logs if there are issues
 
-7. **Custom Domain (Optional)**
+6. **Custom Domain (Optional)**
    - In Vercel dashboard, go to "Settings" → "Domains"
    - Add your custom domain
    - Follow DNS configuration instructions
-   - Update `CORS_ORIGIN` in Railway to include your custom domain
 
 #### Vercel Files Reference
 
@@ -381,17 +384,11 @@ The following files are configured for Vercel:
 - Verify database connection before running migrations
 - Check Railway logs for detailed error messages
 
-**CORS errors:**
-- Verify `CORS_ORIGIN` includes your frontend URL
-- Check that the frontend URL matches exactly (including protocol)
-- Ensure backend is redeployed after CORS changes
-
 ### Frontend Issues
 
 **API connection errors:**
 - Ensure backend is running on the correct port
 - Check `VITE_API_URL` environment variable is set correctly
-- Verify CORS settings in backend include your frontend URL
 - Check browser console for detailed error messages
 
 **Build errors:**

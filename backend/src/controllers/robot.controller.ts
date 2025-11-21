@@ -292,8 +292,8 @@ export async function updateRobot(req: AuthRequest, res: Response, next: NextFun
     // Check admin permission
     const hasAdmin = await hasAdminPermission(req.user.id, {
       serialNumber: decodedSerial,
-      ownerUserId: robot.owner_user_id,
-      ownerGroupId: robot.owner_group_id,
+      ownerUserId: robot.owner_user_id ?? null,
+      ownerGroupId: robot.owner_group_id ?? null,
     });
     if (!hasAdmin) {
       return next(createError('Admin level permission required', 403));
@@ -445,8 +445,8 @@ export async function assignRobot(req: AuthRequest, res: Response, next: NextFun
     // Check admin permission
     const hasAdmin = await hasAdminPermission(req.user.id, {
       serialNumber: decodedSerial,
-      ownerUserId: robot.owner_user_id,
-      ownerGroupId: robot.owner_group_id,
+      ownerUserId: robot.owner_user_id ?? null,
+      ownerGroupId: robot.owner_group_id ?? null,
     });
     if (!hasAdmin) {
       return next(createError('Admin level permission required', 403));
@@ -502,8 +502,8 @@ export async function grantPermission(req: AuthRequest, res: Response, next: Nex
     // Check admin permission
     const hasAdmin = await hasAdminPermission(req.user.id, {
       serialNumber: decodedSerial,
-      ownerUserId: robot.owner_user_id,
-      ownerGroupId: robot.owner_group_id,
+      ownerUserId: robot.owner_user_id ?? null,
+      ownerGroupId: robot.owner_group_id ?? null,
     });
     if (!hasAdmin) {
       return next(createError('Admin level permission required', 403));
@@ -590,8 +590,8 @@ export async function revokePermission(req: AuthRequest, res: Response, next: Ne
     // Check admin permission
     const hasAdmin = await hasAdminPermission(req.user.id, {
       serialNumber: decodedSerial,
-      ownerUserId: robot.owner_user_id,
-      ownerGroupId: robot.owner_group_id,
+      ownerUserId: robot.owner_user_id ?? null,
+      ownerGroupId: robot.owner_group_id ?? null,
     });
     if (!hasAdmin) {
       return next(createError('Admin level permission required', 403));

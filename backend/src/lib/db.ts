@@ -40,7 +40,10 @@ export async function query<T = any>(text: string, params?: any[]): Promise<Quer
     if (process.env.NODE_ENV === 'development') {
       console.log('Executed query', { text, duration, rows: res.rowCount });
     }
-    return res;
+    return {
+      rows: res.rows as T[],
+      rowCount: res.rowCount ?? 0,
+    };
   } catch (error: any) {
     console.error('Database query error', { 
       text: text.substring(0, 100), // Truncate long queries
@@ -63,8 +66,8 @@ export async function query<T = any>(text: string, params?: any[]): Promise<Quer
 
 export async function getClient() {
   const client = await pool.connect();
-  const query = client.query.bind(client);
-  const release = client.release.bind(client);
+  const originalQuery = client.query.bind(client);
+  const originalRelease = client.release.bind(client);
   
   // Set a timeout of 5 seconds, after which we will log this client's last query
   const timeout = setTimeout(() => {
@@ -72,16 +75,15 @@ export async function getClient() {
   }, 5000);
   
   // Monkey patch the query method to keep track of the last query executed
-  client.query = (...args: any[]) => {
-    client.lastQuery = args;
-    return query(...args);
+  (client as any).query = (text: string, params?: any[]) => {
+    return originalQuery(text, params);
   };
   
-  client.release = () => {
+  (client as any).release = () => {
     clearTimeout(timeout);
-    client.query = query;
-    client.release = release;
-    return release();
+    (client as any).query = originalQuery;
+    (client as any).release = originalRelease;
+    return originalRelease();
   };
   
   return client;

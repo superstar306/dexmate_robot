@@ -55,7 +55,6 @@ JWT_SECRET=your-secret-key-here-change-in-production
 JWT_ACCESS_EXPIRES_IN=30m
 JWT_REFRESH_EXPIRES_IN=7d
 
-CORS_ORIGIN=http://localhost:5173,http://127.0.0.1:5173
 ```
 
 ### Frontend (.env or .env.local)
@@ -86,10 +85,6 @@ If you see `EACCES` or connection errors:
 3. Ensure the database exists: `createdb robotops` (or your database name)
 4. Run migrations: `npm run db:migrate`
 
-### CORS Errors
-
-If you see CORS errors in the browser:
-1. Check that `CORS_ORIGIN` in backend `.env` includes your frontend URL
 2. Restart the backend server after changing `.env`
 
 ### API Request Failures

@@ -31,7 +31,7 @@ If you're getting "connection refused" errors from the frontend, the backend ser
    ```
    ✅ Database connection successful
    🚀 Server running on http://localhost:8000
-   📡 CORS configured for origins: http://localhost:5173,http://127.0.0.1:5173
+   🌍 NODE_ENV: development
    📝 Health check: http://localhost:8000/health
    ```
 

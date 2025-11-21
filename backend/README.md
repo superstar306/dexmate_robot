@@ -45,8 +45,6 @@ JWT_SECRET=your-secret-key-here-change-in-production
 JWT_ACCESS_EXPIRES_IN=30m
 JWT_REFRESH_EXPIRES_IN=7d
 
-CORS_ORIGIN=http://localhost:5173
-
 ALLOWED_HOSTS=localhost,127.0.0.1
 ```
 
@@ -58,7 +56,6 @@ ALLOWED_HOSTS=localhost,127.0.0.1
 - `JWT_SECRET` - Secret key for signing JWT tokens (use a strong random string in production)
 - `JWT_ACCESS_EXPIRES_IN` - Access token expiration (default: 30m)
 - `JWT_REFRESH_EXPIRES_IN` - Refresh token expiration (default: 7d)
-- `CORS_ORIGIN` - Comma-separated list of allowed frontend origins
 - `ALLOWED_HOSTS` - Comma-separated list of allowed hostnames
 
 ### 3. Database Setup
@@ -297,29 +294,51 @@ npm run lint
 
 ## Deployment
 
-### Railway
+### Railway (Docker)
 
-The backend is configured for Railway deployment with:
+The backend is configured for Railway deployment using Docker:
 
-- **Nixpacks builder** - Automatic Node.js 20 detection
+- **Docker builder** - Uses Dockerfile for consistent builds
 - **Automatic migrations** - Runs on deploy via `release` command in Procfile
 - **Environment variables** - Configured via Railway dashboard
 
-#### Railway Configuration Files
+#### Docker Configuration
+
+- `Dockerfile` - Docker build configuration
+  - Base image: Node.js 20 LTS
+  - Installs all dependencies (including devDependencies for build)
+  - Compiles TypeScript to JavaScript
+  - Keeps `tsx` and `typescript` for database migrations
+  - Removes other devDependencies to reduce image size
+
+- `.dockerignore` - Files excluded from Docker build
+  - Excludes `node_modules`, `dist`, `.env`, logs, etc.
 
 - `railway.json` - Railway deployment configuration
-  - Root directory: `backend`
-  - Start command: `npm start`
+  - Builder: Dockerfile
   - Restart policy: ON_FAILURE with max 10 retries
-
-- `nixpacks.toml` - Build configuration
-  - Node.js 20
-  - Build steps: `npm ci` → `npm run build`
-  - Start command: `npm start`
 
 - `Procfile` - Process definitions
   - `web: npm start` - Main server process
   - `release: npm run db:migrate` - Runs migrations before deployment
+
+#### Alternative: Nixpacks Builder
+
+If you prefer to use Nixpacks instead of Docker:
+
+- `nixpacks.toml` - Nixpacks build configuration
+  - Node.js 20
+  - Build steps: `npm ci` → `npm run build`
+  - Start command: `npm start`
+
+To use Nixpacks, update `railway.json`:
+```json
+{
+  "build": {
+    "builder": "NIXPACKS"
+  }
+}
+```
 
 #### Environment Variables (Production)
 
@@ -327,7 +346,6 @@ Set these in Railway dashboard:
 
 - `DATABASE_URL` - PostgreSQL connection string (auto-provided by Railway PostgreSQL service)
 - `JWT_SECRET` - Strong secret key for JWT tokens (64+ characters recommended)
-- `CORS_ORIGIN` - Frontend URL (e.g., `https://your-app.vercel.app`)
 - `NODE_ENV=production`
 - `PORT` - Set automatically by Railway
 - `JWT_ACCESS_EXPIRES_IN=30m` (optional)
@@ -347,17 +365,58 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 3. Set root directory to `backend` in service settings
 4. Add environment variables
 5. Deploy - Railway will automatically:
+   - Build Docker image using `Dockerfile`
    - Run `npm ci` to install dependencies
    - Run `npm run build` to compile TypeScript
    - Run `npm run db:migrate` (release command) to migrate database
    - Run `npm start` to start the server
 
+#### Docker Build Process
+
+The Dockerfile performs the following steps:
+
+1. **Setup**: Uses Node.js 20 LTS base image
+2. **Install**: Runs `npm ci` to install all dependencies
+3. **Build**: Runs `npm run build` to compile TypeScript
+4. **Optimize**: Removes unnecessary devDependencies (keeps `tsx` and `typescript` for migrations)
+5. **Start**: Runs `npm start` to start the server
+
+#### Building Docker Image Locally
+
+To test the Docker build locally:
+
+```bash
+# Build the image
+docker build -t robotops-backend .
+
+# Run the container
+docker run -p 8000:8000 \
+  -e DATABASE_URL=postgresql://user:pass@host:5432/db \
+  -e JWT_SECRET=your-secret \
+  robotops-backend
+```
+
+#### Docker Benefits
+
+- **Consistent builds** across all environments
+- **Faster deployments** with proper layer caching
+- **Better control** over the build process
+- **No dependency** on Nixpacks detection
+- **Reproducible** builds every time
+
 #### Troubleshooting Railway Deployment
 
-**Build fails:**
+**Docker build fails:**
+- Verify root directory is set to `backend` (not `backend/`)
+- Check that `Dockerfile` exists in `backend` directory
+- Ensure `package.json` exists in `backend` directory
+- Check Railway build logs for specific errors
+- Verify Dockerfile syntax is correct
+
+**Nixpacks build fails (if using Nixpacks):**
 - Verify root directory is set to `backend` (not `backend/`)
 - Check that `package.json` exists in `backend` directory
-- Ensure `tsconfig.json` is present
+- Ensure `nixpacks.toml` is present
 - Check Railway build logs for specific errors
 
 **Database connection fails:**
@@ -378,11 +437,35 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 
 ### Manual Deployment
 
+#### Using Docker
+
+1. Build the Docker image:
+   ```bash
+   docker build -t robotops-backend .
+   ```
+
+2. Run the container with environment variables:
+   ```bash
+   docker run -d \
+     -p 8000:8000 \
+     -e NODE_ENV=production \
+     -e DATABASE_URL=postgresql://user:pass@host:5432/db \
+     -e JWT_SECRET=your-secret \
+     --name robotops-backend \
+     robotops-backend
+   ```
+
+3. Run migrations (if not using Procfile release command):
+   ```bash
+   docker exec robotops-backend npm run db:migrate
+   ```
+
+#### Without Docker
+
 1. Set `NODE_ENV=production`
 2. Set a strong `JWT_SECRET`
 3. Configure `DATABASE_URL` with production PostgreSQL
-4. Set `CORS_ORIGIN` to your frontend URL
-5. Build: `npm run build`
+4. Build: `npm run build`
 6. Run migrations: `npm run db:migrate`
 7. Start server: `npm start`
 
@@ -390,12 +473,12 @@ For production, consider using:
 - Process manager (PM2, systemd)
 - Reverse proxy (Nginx)
 - SSL/TLS certificates (Let's Encrypt)
+- Docker with docker-compose for orchestration
 
 ## Security Notes
 
 - **JWT Secret**: Use a strong, random secret (64+ characters) in production
 - **Password Hashing**: Uses bcryptjs with salt rounds
-- **CORS**: Configure allowed origins properly
 - **Input Validation**: All inputs validated using express-validator
 - **SQL Injection**: Uses parameterized queries via `pg` driver
 - **Environment Variables**: Never commit `.env` files
