@@ -30,11 +30,7 @@ router.delete('/:id', [
 router.post('/:id/members', [
   param('id').isInt(),
   body('user_id').isInt(),
-  body('role').optional().custom((value) => {
-    if (!value) return true; // Optional field
-    const normalized = String(value).toUpperCase();
-    return ['ADMIN', 'MEMBER'].includes(normalized);
-  }).withMessage('Role must be ADMIN or MEMBER'),
+  body('role').optional().isIn(['ADMIN', 'MEMBER']),
 ], upsertMember);
 router.delete('/:id/members/:userId', [
   param('id').isInt(),
