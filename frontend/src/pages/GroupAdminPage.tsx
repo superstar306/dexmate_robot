@@ -362,50 +362,63 @@ export function GroupAdminPage() {
               </tbody>
             </table>
             <h4>Add / Update Member</h4>
-            <form onSubmit={(event) => handleMemberSubmit(event, group.id)}>
-              <div className="grid two">
-                <div className="form-field">
-                  <label htmlFor={`member-user-${group.id}`}>User</label>
-                  <select
-                    id={`member-user-${group.id}`}
-                    value={memberForm.userId}
-                    onChange={(event) =>
-                      setMemberForm((prev) => ({ ...prev, userId: event.target.value }))
-                    }
-                    required
-                  >
-                    <option value="">Select user</option>
-                    {usersQuery.data
-                      ?.filter((u) => {
-                        // Filter out users already in the group
-                        return !group.members.some((m) => m.user.id === u.id)
-                      })
-                      .map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.name || user.email} ({user.email})
-                        </option>
-                      ))}
-                  </select>
+            {usersQuery.isLoading ? (
+              <p className="muted">Loading users...</p>
+            ) : usersQuery.error ? (
+              <p className="muted" style={{ color: 'var(--error)' }}>
+                Error loading users. Please refresh the page.
+              </p>
+            ) : (
+              <form onSubmit={(event) => handleMemberSubmit(event, group.id)}>
+                <div className="grid two">
+                  <div className="form-field">
+                    <label htmlFor={`member-user-${group.id}`}>User</label>
+                    <select
+                      id={`member-user-${group.id}`}
+                      value={memberForm.userId}
+                      onChange={(event) =>
+                        setMemberForm((prev) => ({ ...prev, userId: event.target.value }))
+                      }
+                      required
+                    >
+                      <option value="">Select user</option>
+                      {usersQuery.data
+                        ?.filter((u) => {
+                          // Filter out users already in the group
+                          return !group.members.some((m) => m.user.id === u.id)
+                        })
+                        .map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.name || user.email} ({user.email})
+                          </option>
+                        ))}
+                    </select>
+                    {usersQuery.data && usersQuery.data.filter((u) => !group.members.some((m) => m.user.id === u.id)).length === 0 && (
+                      <div className="muted" style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}>
+                        All users are already members of this group
+                      </div>
+                    )}
+                  </div>
+                  <div className="form-field">
+                    <label htmlFor={`member-role-${group.id}`}>Role</label>
+                    <select
+                      id={`member-role-${group.id}`}
+                      value={memberForm.role}
+                      onChange={(event) =>
+                        setMemberForm((prev) => ({ ...prev, role: event.target.value }))
+                      }
+                      required
+                    >
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="form-field">
-                  <label htmlFor={`member-role-${group.id}`}>Role</label>
-                  <select
-                    id={`member-role-${group.id}`}
-                    value={memberForm.role}
-                    onChange={(event) =>
-                      setMemberForm((prev) => ({ ...prev, role: event.target.value }))
-                    }
-                    required
-                  >
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-              </div>
-              <button type="submit" className="button" disabled={upsertMemberMutation.isPending || !memberForm.userId}>
-                {upsertMemberMutation.isPending ? 'Saving…' : 'Save member'}
-              </button>
-            </form>
+                <button type="submit" className="button" disabled={upsertMemberMutation.isPending || !memberForm.userId}>
+                  {upsertMemberMutation.isPending ? 'Saving…' : 'Add Member'}
+                </button>
+              </form>
+            )}
 
             <h3 style={{ marginTop: '1.5rem' }}>Robots</h3>
             {(groupRobots.get(group.id) ?? []).length === 0 ? (
@@ -433,64 +446,78 @@ export function GroupAdminPage() {
 
       <div className="card">
         <h3>Assign Robot to Member</h3>
-        <form onSubmit={handleAssignRobot}>
-          <div className="grid two">
-            <div className="form-field">
-              <label htmlFor="assign-serial">Group Robot</label>
-              <select
-                id="assign-serial"
-                value={assignForm.serialNumber}
-                onChange={(event) =>
-                  setAssignForm((prev) => ({
-                    ...prev,
-                    serialNumber: event.target.value,
-                  }))
-                }
-                required
-              >
-                <option value="">Select robot</option>
-                {managedGroups.flatMap((group) => {
-                  const robots = groupRobots.get(group.id) ?? []
-                  return robots.map((robot) => (
-                    <option key={robot.serial_number} value={robot.serial_number}>
-                      {robot.name} (S/N: {robot.serial_number}) - {group.name}
-                    </option>
-                  ))
-                })}
-              </select>
-            </div>
-            <div className="form-field">
-              <label htmlFor="assign-user">Group Member</label>
-              <select
-                id="assign-user"
-                value={assignForm.userId}
-                onChange={(event) =>
-                  setAssignForm((prev) => ({
-                    ...prev,
-                    userId: event.target.value,
-                  }))
-                }
-                required
-              >
-                <option value="">Select member</option>
-                {managedGroups.flatMap((group) =>
-                  group.members.map((member) => (
-                    <option key={`${group.id}-${member.user.id}`} value={member.user.id}>
-                      {member.user.name || member.user.email} ({group.name}, {member.role})
-                    </option>
-                  )),
+        {managedGroups.length === 0 ? (
+          <p className="muted">You need to be an admin of at least one group to assign robots.</p>
+        ) : (
+          <form onSubmit={handleAssignRobot}>
+            <div className="grid two">
+              <div className="form-field">
+                <label htmlFor="assign-serial">Group Robot</label>
+                <select
+                  id="assign-serial"
+                  value={assignForm.serialNumber}
+                  onChange={(event) =>
+                    setAssignForm((prev) => ({
+                      ...prev,
+                      serialNumber: event.target.value,
+                    }))
+                  }
+                  required
+                >
+                  <option value="">Select robot</option>
+                  {managedGroups.flatMap((group) => {
+                    const robots = groupRobots.get(group.id) ?? []
+                    return robots.map((robot) => (
+                      <option key={robot.serial_number} value={robot.serial_number}>
+                        {robot.name} (S/N: {robot.serial_number}) - {group.name}
+                      </option>
+                    ))
+                  })}
+                </select>
+                {managedGroups.flatMap((group) => groupRobots.get(group.id) ?? []).length === 0 && (
+                  <div className="muted" style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}>
+                    No group robots available. Create a robot for your group first.
+                  </div>
                 )}
-              </select>
+              </div>
+              <div className="form-field">
+                <label htmlFor="assign-user">Group Member</label>
+                <select
+                  id="assign-user"
+                  value={assignForm.userId}
+                  onChange={(event) =>
+                    setAssignForm((prev) => ({
+                      ...prev,
+                      userId: event.target.value,
+                    }))
+                  }
+                  required
+                >
+                  <option value="">Select member</option>
+                  {managedGroups.flatMap((group) =>
+                    group.members.map((member) => (
+                      <option key={`${group.id}-${member.user.id}`} value={member.user.id}>
+                        {member.user.name || member.user.email} ({group.name}, {member.role})
+                      </option>
+                    )),
+                  )}
+                </select>
+                {managedGroups.flatMap((group) => group.members).length === 0 && (
+                  <div className="muted" style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}>
+                    No members in your groups. Add members to groups first.
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-          <button
-            type="submit"
-            className="button"
-            disabled={assignRobotMutation.isPending || !assignForm.serialNumber || !assignForm.userId}
-          >
-            {assignRobotMutation.isPending ? 'Assigning…' : 'Assign'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              className="button"
+              disabled={assignRobotMutation.isPending || !assignForm.serialNumber || !assignForm.userId}
+            >
+              {assignRobotMutation.isPending ? 'Assigning…' : 'Assign'}
+            </button>
+          </form>
+        )}
       </div>
 
       <div className="card">

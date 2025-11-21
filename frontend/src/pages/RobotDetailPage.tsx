@@ -269,10 +269,14 @@ export function RobotDetailPage() {
   const handleAssign = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const numericId = Number(assignUserId)
-    if (!Number.isFinite(numericId)) {
+    if (!Number.isFinite(numericId) || !assignUserId) {
       return
     }
-    assignMutation.mutate(numericId)
+    assignMutation.mutate(numericId, {
+      onSuccess: () => {
+        setAssignUserId('')
+      },
+    })
   }
 
   const handleGrantPermission = (event: React.FormEvent<HTMLFormElement>) => {
@@ -376,12 +380,20 @@ export function RobotDetailPage() {
                     ))}
                   </select>
                 </div>
-                <button type="submit" className="button" disabled={assignMutation.isPending}>
+                <button type="submit" className="button" disabled={assignMutation.isPending || !assignUserId}>
                   {assignMutation.isPending ? 'Assigning…' : 'Assign'}
                 </button>
               </form>
             </div>
-          ) : null}
+          ) : (
+            <div className="card">
+              <h2>Share Robot</h2>
+              <p className="muted">
+                Personal robots cannot be assigned to other users. Instead, you can grant permissions to allow other users to access this robot.
+                Use the "Permissions" section below to grant access.
+              </p>
+            </div>
+          )}
 
           <div className="card">
             <h2>Permissions</h2>
