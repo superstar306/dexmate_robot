@@ -324,7 +324,20 @@ export async function upsertMember(req: AuthRequest, res: Response, next: NextFu
 
     const { id } = req.params;
     const groupId = parseInt(id, 10);
-    const { user_id, role = 'MEMBER' } = req.body;
+    const { user_id, role } = req.body;
+
+    // Normalize role to uppercase (handle both 'member'/'admin' and 'MEMBER'/'ADMIN')
+    const normalizedRole = role ? role.toUpperCase() : 'MEMBER';
+    
+    // Validate role
+    if (normalizedRole !== 'ADMIN' && normalizedRole !== 'MEMBER') {
+      return next(createError('Invalid role. Must be ADMIN or MEMBER', 400));
+    }
+
+    // Validate user_id
+    if (!user_id || !Number.isInteger(user_id)) {
+      return next(createError('Invalid user_id', 400));
+    }
 
     const groupResult = await query<{
       id: number;
@@ -352,6 +365,16 @@ export async function upsertMember(req: AuthRequest, res: Response, next: NextFu
       return next(createError('Group admin privileges required', 403));
     }
 
+    // Check if user exists
+    const userCheckResult = await query<{ id: number }>(
+      'SELECT id FROM users WHERE id = $1',
+      [user_id]
+    );
+
+    if (userCheckResult.rows.length === 0) {
+      return next(createError('User not found', 404));
+    }
+
     const memberResult = await query<{
       id: number;
       user_id: number;
@@ -363,7 +386,7 @@ export async function upsertMember(req: AuthRequest, res: Response, next: NextFu
        ON CONFLICT (group_id, user_id)
        DO UPDATE SET role = $3
        RETURNING *`,
-      [groupId, user_id, role]
+      [groupId, user_id, normalizedRole]
     );
 
     const member = memberResult.rows[0];
@@ -379,6 +402,10 @@ export async function upsertMember(req: AuthRequest, res: Response, next: NextFu
       [user_id]
     );
 
+    if (userResult.rows.length === 0) {
+      return next(createError('User not found', 404));
+    }
+
     res.json({
       id: member.id,
       user: userResult.rows[0],
@@ -386,6 +413,13 @@ export async function upsertMember(req: AuthRequest, res: Response, next: NextFu
       created_at: member.created_at,
     });
   } catch (error: any) {
+    // Handle database constraint violations
+    if (error.code === '23503') {
+      return next(createError('Invalid user or group', 400));
+    }
+    if (error.code === '23505') {
+      return next(createError('User is already a member of this group', 409));
+    }
     next(error);
   }
 }
