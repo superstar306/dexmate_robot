@@ -47,7 +47,7 @@ router.delete('/:serialNumber', [
 ], deleteRobot);
 router.post('/:serialNumber/assign', [
   param('serialNumber').notEmpty(),
-  body('user_id').isInt(),
+  body('user_id').isInt().withMessage('user_id must be an integer (use 0 to unassign)'),
 ], assignRobot);
 router.post('/:serialNumber/permissions', [
   param('serialNumber').notEmpty(),

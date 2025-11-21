@@ -421,6 +421,11 @@ export async function assignRobot(req: AuthRequest, res: Response, next: NextFun
     const { serialNumber } = req.params;
     const decodedSerial = decodeURIComponent(serialNumber);
     const { user_id } = req.body;
+    
+    // Allow 0 to unassign, but validate other values
+    if (user_id !== 0 && user_id !== null && (!Number.isInteger(user_id) || user_id < 1)) {
+      return next(createError('Invalid user_id. Use 0 to unassign or a positive integer to assign', 400));
+    }
 
     const robotResult = await query<{
       serial_number: string;
@@ -437,11 +442,6 @@ export async function assignRobot(req: AuthRequest, res: Response, next: NextFun
 
     const robot = robotResult.rows[0];
 
-    // Only group-owned robots can be assigned
-    if (!robot.owner_group_id) {
-      return next(createError('Only group-owned robots can be assigned to members', 400));
-    }
-
     // Check admin permission
     const hasAdmin = await hasAdminPermission(req.user.id, {
       serialNumber: decodedSerial,
@@ -452,19 +452,24 @@ export async function assignRobot(req: AuthRequest, res: Response, next: NextFun
       return next(createError('Admin level permission required', 403));
     }
 
-    // Check if user is member of the group
-    const membershipResult = await query(
-      'SELECT user_id FROM group_memberships WHERE group_id = $1 AND user_id = $2',
-      [robot.owner_group_id, user_id]
-    );
-    
-    if (membershipResult.rows.length === 0) {
-      return next(createError('User must belong to the owning group', 400));
+    // For group-owned robots, check if user is member of the group
+    if (robot.owner_group_id) {
+      const membershipResult = await query(
+        'SELECT user_id FROM group_memberships WHERE group_id = $1 AND user_id = $2',
+        [robot.owner_group_id, user_id]
+      );
+      
+      if (membershipResult.rows.length === 0) {
+        return next(createError('User must belong to the owning group', 400));
+      }
     }
+    // For personal robots, owner can assign to any user (no group membership check needed)
 
+    // Allow 0 or null to unassign
+    const assignedUserId = user_id === 0 ? null : user_id;
     await query(
       'UPDATE robots SET assigned_user_id = $1 WHERE serial_number = $2',
-      [user_id, decodedSerial]
+      [assignedUserId, decodedSerial]
     );
 
     // Return updated robot (same as getRobot)

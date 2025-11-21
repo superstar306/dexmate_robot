@@ -83,6 +83,10 @@ export function GroupAdminPage() {
       queryClient.invalidateQueries({ queryKey: GROUPS_KEY })
       setMemberForm({ userId: '', role: 'member' })
     },
+    onError: (error: any) => {
+      console.error('Error adding member:', error)
+      // Error will be handled by React Query's error state
+    },
   })
 
   const removeMemberMutation = useMutation({
@@ -169,9 +173,11 @@ export function GroupAdminPage() {
     if (!Number.isFinite(userIdValue)) {
       return
     }
+    // Backend expects uppercase role values
+    const roleUpper = memberForm.role.toUpperCase() as 'ADMIN' | 'MEMBER'
     upsertMemberMutation.mutate({
       groupId,
-      body: { user_id: userIdValue, role: memberForm.role },
+      body: { user_id: userIdValue, role: roleUpper },
     })
   }
 
@@ -369,55 +375,64 @@ export function GroupAdminPage() {
                 Error loading users. Please refresh the page.
               </p>
             ) : (
-              <form onSubmit={(event) => handleMemberSubmit(event, group.id)}>
-                <div className="grid two">
-                  <div className="form-field">
-                    <label htmlFor={`member-user-${group.id}`}>User</label>
-                    <select
-                      id={`member-user-${group.id}`}
-                      value={memberForm.userId}
-                      onChange={(event) =>
-                        setMemberForm((prev) => ({ ...prev, userId: event.target.value }))
-                      }
-                      required
-                    >
-                      <option value="">Select user</option>
-                      {usersQuery.data
-                        ?.filter((u) => {
-                          // Filter out users already in the group
-                          return !group.members.some((m) => m.user.id === u.id)
-                        })
-                        .map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {user.name || user.email} ({user.email})
-                          </option>
-                        ))}
-                    </select>
-                    {usersQuery.data && usersQuery.data.filter((u) => !group.members.some((m) => m.user.id === u.id)).length === 0 && (
-                      <div className="muted" style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}>
-                        All users are already members of this group
-                      </div>
-                    )}
+              <>
+                {upsertMemberMutation.isError && (
+                  <div className="muted" style={{ color: 'var(--error)', marginBottom: '1rem', padding: '0.5rem', backgroundColor: 'rgba(255, 0, 0, 0.1)', borderRadius: '4px' }}>
+                    Error: {upsertMemberMutation.error instanceof Error 
+                      ? upsertMemberMutation.error.message 
+                      : (upsertMemberMutation.error as any)?.response?.data?.detail || 'Failed to add member'}
                   </div>
-                  <div className="form-field">
-                    <label htmlFor={`member-role-${group.id}`}>Role</label>
-                    <select
-                      id={`member-role-${group.id}`}
-                      value={memberForm.role}
-                      onChange={(event) =>
-                        setMemberForm((prev) => ({ ...prev, role: event.target.value }))
-                      }
-                      required
-                    >
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                )}
+                <form onSubmit={(event) => handleMemberSubmit(event, group.id)}>
+                  <div className="grid two">
+                    <div className="form-field">
+                      <label htmlFor={`member-user-${group.id}`}>User</label>
+                      <select
+                        id={`member-user-${group.id}`}
+                        value={memberForm.userId}
+                        onChange={(event) =>
+                          setMemberForm((prev) => ({ ...prev, userId: event.target.value }))
+                        }
+                        required
+                      >
+                        <option value="">Select user</option>
+                        {usersQuery.data
+                          ?.filter((u) => {
+                            // Filter out users already in the group
+                            return !group.members.some((m) => m.user.id === u.id)
+                          })
+                          .map((user) => (
+                            <option key={user.id} value={user.id}>
+                              {user.name || user.email} ({user.email})
+                            </option>
+                          ))}
+                      </select>
+                      {usersQuery.data && usersQuery.data.filter((u) => !group.members.some((m) => m.user.id === u.id)).length === 0 && (
+                        <div className="muted" style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}>
+                          All users are already members of this group
+                        </div>
+                      )}
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor={`member-role-${group.id}`}>Role</label>
+                      <select
+                        id={`member-role-${group.id}`}
+                        value={memberForm.role}
+                        onChange={(event) =>
+                          setMemberForm((prev) => ({ ...prev, role: event.target.value }))
+                        }
+                        required
+                      >
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
                   </div>
-                </div>
-                <button type="submit" className="button" disabled={upsertMemberMutation.isPending || !memberForm.userId}>
-                  {upsertMemberMutation.isPending ? 'Saving…' : 'Add Member'}
-                </button>
-              </form>
+                  <button type="submit" className="button" disabled={upsertMemberMutation.isPending || !memberForm.userId}>
+                    {upsertMemberMutation.isPending ? 'Saving…' : 'Add Member'}
+                  </button>
+                </form>
+              </>
             )}
 
             <h3 style={{ marginTop: '1.5rem' }}>Robots</h3>

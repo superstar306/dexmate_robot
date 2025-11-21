@@ -268,6 +268,15 @@ export function RobotDetailPage() {
 
   const handleAssign = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    // Allow 0 to unassign
+    if (assignUserId === '0') {
+      assignMutation.mutate(0, {
+        onSuccess: () => {
+          setAssignUserId('')
+        },
+      })
+      return
+    }
     const numericId = Number(assignUserId)
     if (!Number.isFinite(numericId) || !assignUserId) {
       return
@@ -361,9 +370,9 @@ export function RobotDetailPage() {
 
       {canAdminister ? (
         <>
-          {robot.owner?.type === 'group' ? (
-            <div className="card">
-              <h2>Assign to Member</h2>
+          <div className="card">
+            <h2>{robot.owner?.type === 'group' ? 'Assign to Member' : 'Assign to User'}</h2>
+            {robot.owner?.type === 'group' ? (
               <form onSubmit={handleAssign}>
                 <div className="form-field">
                   <label htmlFor="assign">Group Member</label>
@@ -379,21 +388,64 @@ export function RobotDetailPage() {
                       </option>
                     ))}
                   </select>
+                  {groupMembers.length === 0 && groupsQuery.data && (
+                    <div className="muted" style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}>
+                      No members in this group
+                    </div>
+                  )}
                 </div>
                 <button type="submit" className="button" disabled={assignMutation.isPending || !assignUserId}>
                   {assignMutation.isPending ? 'Assigning…' : 'Assign'}
                 </button>
               </form>
-            </div>
-          ) : (
-            <div className="card">
-              <h2>Share Robot</h2>
-              <p className="muted">
-                Personal robots cannot be assigned to other users. Instead, you can grant permissions to allow other users to access this robot.
-                Use the "Permissions" section below to grant access.
-              </p>
-            </div>
-          )}
+            ) : (
+              <form onSubmit={handleAssign}>
+                <div className="form-field">
+                  <label htmlFor="assign">User</label>
+                  {usersQuery.isLoading ? (
+                    <p className="muted">Loading users...</p>
+                  ) : usersQuery.error ? (
+                    <p className="muted" style={{ color: 'var(--error)' }}>
+                      Error loading users. Please refresh the page.
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        id="assign"
+                        value={assignUserId}
+                        onChange={(event) => setAssignUserId(event.target.value)}
+                      >
+                        <option value="">Select user</option>
+                        <option value="0">Unassign (remove assignment)</option>
+                        {usersQuery.data
+                          ?.filter((user) => {
+                            // Don't show the owner in the list
+                            const ownerUserId = robot.owner?.type === 'user' ? robot.owner.id : null
+                            return ownerUserId === null || user.id !== ownerUserId
+                          })
+                          .map((user) => (
+                            <option key={user.id} value={user.id}>
+                              {user.name || user.email} ({user.email})
+                            </option>
+                          ))}
+                      </select>
+                      {usersQuery.data && usersQuery.data.filter((u) => {
+                        const ownerUserId = robot.owner?.type === 'user' ? robot.owner.id : null
+                        return ownerUserId === null || u.id !== ownerUserId
+                      }).length === 0 && (
+                        <div className="muted" style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}>
+                          No other users available
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                <button type="submit" className="button" disabled={assignMutation.isPending || !assignUserId || usersQuery.isLoading}>
+                  {assignMutation.isPending ? 'Assigning…' : 'Assign'}
+                </button>
+              </form>
+            )}
+          </div>
 
           <div className="card">
             <h2>Permissions</h2>
